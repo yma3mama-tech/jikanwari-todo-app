@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f9f9f7">
+<title>時間割ToDo</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --surface-2: #f2f1ec;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --muted: #898781;
+    --border: rgba(11,11,11,0.10);
+    --line: #e1e0d9;
+    --accent: #2a78d6;
+    --accent-soft: rgba(42,120,214,0.10);
+    --gold: #d68a1e;
+    --gold-soft: rgba(214,138,30,0.12);
+    --warn: #c9531f;
+    --warn-soft: rgba(201,83,31,0.10);
+    --done: #8a8a84;
+    --shadow: 0 6px 20px rgba(0,0,0,0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --surface-2: #232322;
+      --text: #ffffff;
+      --text-2: #c3c2b7;
+      --muted: #898781;
+      --border: rgba(255,255,255,0.12);
+      --line: #2c2c2a;
+      --accent: #5b9df0;
+      --accent-soft: rgba(91,157,240,0.14);
+      --gold: #e8ab45;
+      --gold-soft: rgba(232,171,69,0.14);
+      --warn: #ef7f4d;
+      --warn-soft: rgba(239,127,77,0.14);
+      --done: #6f6f6a;
+      --shadow: 0 6px 20px rgba(0,0,0,0.5);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    background: var(--page); color: var(--text);
+    line-height: 1.5; font-size: 16px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .app { max-width: 560px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+
+  /* ---- header ---- */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--page);
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .hrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .today { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; }
+  .today .dow { font-size: 0.9rem; color: var(--text-2); font-weight: 600; margin-left: 2px; }
+  .iconbtn {
+    width: 44px; height: 44px; border: none; background: transparent; color: var(--text);
+    font-size: 1.25rem; border-radius: 12px; cursor: pointer; flex: none;
+  }
+  .iconbtn:active { background: var(--surface-2); }
+
+  /* ---- add ---- */
+  .add { margin-top: 10px; }
+  .add input[type="text"] {
+    width: 100%; height: 48px; padding: 0 14px;
+    font-size: 1rem; font-family: inherit; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .add input::placeholder { color: var(--muted); }
+  .add input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .weights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+  .wbtn {
+    min-height: 52px; padding: 6px 2px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px;
+    font-family: inherit; font-size: 0.72rem; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    cursor: pointer; transition: transform 0.08s;
+  }
+  .wbtn .emo { font-size: 1.15rem; line-height: 1; }
+  .wbtn .min { font-size: 0.62rem; color: var(--muted); font-weight: 500; }
+  .wbtn:active { transform: scale(0.95); background: var(--accent-soft); }
+  .wbtn[disabled] { opacity: 0.4; cursor: default; }
+
+  /* ---- banner ---- */
+  .banner {
+    margin: 10px 14px 0; padding: 10px 12px;
+    background: var(--gold-soft); border: 1px solid var(--gold);
+    border-radius: 12px; font-size: 0.82rem; color: var(--text);
+  }
+  .banner b { font-weight: 700; }
+
+  /* ---- bands ---- */
+  main { flex: 1; padding: 6px 14px 96px; }
+  .band { margin-top: 18px; }
+  .band-h { display: flex; align-items: baseline; gap: 8px; padding: 0 2px 6px; }
+  .band-h .emo { font-size: 0.95rem; }
+  .band-h .name { font-size: 0.85rem; font-weight: 700; }
+  .band-h .sub { font-size: 0.75rem; color: var(--text-2); }
+  .band-h .amt { margin-left: auto; font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .band.now .band-h .name { color: var(--accent); }
+  .band.now.golden .band-h .name { color: var(--gold); }
+  .nowchip {
+    font-size: 0.62rem; font-weight: 700; color: var(--page); background: var(--accent);
+    border-radius: 999px; padding: 1px 7px; line-height: 1.5;
+  }
+  .band.golden .nowchip { background: var(--gold); }
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .empty {
+    font-size: 0.75rem; color: var(--muted); padding: 10px 12px;
+    border: 1px dashed var(--line); border-radius: 12px;
+  }
+  .task {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 0 4px 0 12px; min-height: 52px;
+  }
+  .band.now .task { border-color: var(--accent); }
+  .band.now.golden .task { border-color: var(--gold); }
+  .task .check {
+    width: 22px; height: 22px; flex: none; border-radius: 50%;
+    border: 2px solid var(--muted); position: relative;
+  }
+  .task.done .check { background: var(--done); border-color: var(--done); }
+  .task.done .check::after {
+    content: ""; position: absolute; left: 6px; top: 2px;
+    width: 5px; height: 10px; border: solid var(--surface);
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .task .body { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 0; cursor: pointer; min-width: 0; }
+  .task .title { font-size: 0.92rem; word-break: break-word; }
+  .task.done .title { color: var(--done); text-decoration: line-through; }
+  .task .tags { margin-left: auto; display: flex; align-items: center; gap: 5px; flex: none; }
+  .task .wtag { font-size: 0.95rem; }
+  .task .carry {
+    font-size: 0.62rem; color: var(--warn); background: var(--warn-soft);
+    border-radius: 999px; padding: 1px 6px; font-weight: 700; white-space: nowrap;
+  }
+  .task .more {
+    width: 40px; height: 44px; flex: none; border: none; background: transparent;
+    color: var(--muted); font-size: 1.1rem; border-radius: 10px; cursor: pointer;
+  }
+  .task .more:active { background: var(--surface-2); }
+  .buffer {
+    margin-top: 14px; font-size: 0.72rem; color: var(--muted);
+    text-align: center; padding: 6px; border-top: 1px dashed var(--line);
+  }
+
+  /* ---- footer ---- */
+  .foot {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  }
+  .foot .inner { max-width: 560px; margin: 0 auto; }
+  .sum { display: flex; align-items: baseline; gap: 8px; font-size: 0.82rem; color: var(--text-2); }
+  .sum b { font-size: 1rem; color: var(--text); font-variant-numeric: tabular-nums; }
+  .sum .rest { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+  .over { margin-top: 6px; font-size: 0.75rem; color: var(--warn); }
+
+  /* ---- sheet ---- */
+  .veil {
+    position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,0.35);
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .veil.on { display: flex; }
+  .sheet {
+    width: 100%; max-width: 560px; background: var(--surface);
+    border-radius: 18px 18px 0 0; box-shadow: var(--shadow);
+    padding: 8px 14px calc(18px + env(safe-area-inset-bottom));
+    max-height: 88vh; overflow-y: auto;
+  }
+  .grip { width: 38px; height: 4px; border-radius: 2px; background: var(--line); margin: 6px auto 12px; }
+  .sheet h3 { font-size: 0.95rem; margin-bottom: 4px; word-break: break-word; }
+  .sheet .lead { font-size: 0.75rem; color: var(--text-2); margin-bottom: 12px; }
+  .sheet .sec { font-size: 0.72rem; color: var(--muted); margin: 14px 0 6px; }
+  .opt {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: 50px; padding: 8px 14px; margin-bottom: 6px;
+    background: var(--surface-2); border: 1px solid transparent; border-radius: 12px;
+    font-family: inherit; font-size: 0.88rem; color: var(--text); text-align: left; cursor: pointer;
+  }
+  .opt:active { background: var(--accent-soft); }
+  .opt.cur { border-color: var(--accent); }
+  .opt .s { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
+  .opt.danger { color: var(--warn); }
+  .stat { display: flex; align-items: baseline; gap: 10px; padding: 12px 14px; background: var(--surface-2); border-radius: 12px; margin-bottom: 8px; }
+  .stat .v { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 0.78rem; color: var(--text-2); }
+  .stat .n { margin-left: auto; font-size: 0.72rem; color: var(--muted); text-align: right; }
+  .note { font-size: 0.74rem; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+  .toast {
+    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+    background: var(--text); color: var(--page); font-size: 0.8rem;
+    padding: 8px 16px; border-radius: 999px; z-index: 40;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .toast.on { opacity: 0.94; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="hrow">
+      <div class="today" id="today">－</div>
+      <button class="iconbtn" id="menuBtn" aria-label="メニュー">☰</button>
+    </div>
+    <div class="add">
+      <input type="text" id="newTitle" placeholder="＋ タスクを追加" enterkeyhint="done" autocomplete="off">
+      <div class="weights" id="weights"></div>
+    </div>
+  </header>
+
+  <div id="bannerSlot"></div>
+  <main id="bands"></main>
+</div>
+
+<div class="foot">
+  <div class="inner">
+    <div class="sum">
+      <span>今日の見込み</span><b id="sumVal">0分</b>
+      <span class="rest" id="restVal"></span>
+    </div>
+    <div class="over" id="overMsg" hidden></div>
+  </div>
+</div>
+
+<div class="veil" id="veil"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============ 定義 ============ */
+const WEIGHTS = {
+  heavy:  { emo:"🪨", label:"重い",   min:60, note:"考える系・45分以上", band:"golden", alt:"noon" },
+  normal: { emo:"📄", label:"ふつう", min:30, note:"30分前後の事務",     band:"volume" },
+  light:  { emo:"✉️", label:"軽い",   min:10, note:"15分以内の処理",     band:"morning" },
+  close:  { emo:"🕔", label:"締め",   min:10, note:"提出・回覧",         band:"close" }
+};
+const BANDS = [
+  { id:"morning", emo:"🌅", name:"9時台",   sub:"朝の処理帯",       hours:[9],       cap:60  },
+  { id:"volume",  emo:"☀️", name:"10-12時", sub:"量産帯",           hours:[10,11,12],cap:180 },
+  { id:"noon",    emo:"🍱", name:"13時台",  sub:"昼の集中枠",       hours:[13],      cap:60  },
+  { id:"golden",  emo:"🌟", name:"15-16時", sub:"ゴールデンタイム", hours:[15,16],   cap:120 },
+  { id:"close",   emo:"🌇", name:"17時台",  sub:"締め帯",           hours:[17],      cap:60  }
+];
+const DAY_CAPACITY = 240;          // 実績1日平均 約4時間
+const KEY = "jikanwari-todo-v1";
+
+/* ============ 状態 ============ */
+let state = { tasks: [], log: [], lastDate: "" };
+
+/* ============ 小道具 ============ */
+const $ = id => document.getElementById(id);
+const ymd = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+const DOW = ["日","月","火","水","木","金","土"];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const bandOf = id => BANDS.find(b => b.id === id) || BANDS[0];
+const fmtMin = m => m >= 60 ? (m % 60 === 0 ? (m/60) + "時間" : Math.floor(m/60) + "時間" + (m%60) + "分") : m + "分";
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("on"), 1600);
+}
+
+/* ============ 保存・読み込み（操作のたび即時保存） ============ */
+let storageWarned = false;
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (e) {
+    if (!storageWarned) {
+      storageWarned = true;
+      toast("この画面では保存できません（ファイルを直接開いてください）");
+    }
+  }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.tasks)) {
+        state.tasks = d.tasks;
+        state.log = Array.isArray(d.log) ? d.log : [];
+        state.lastDate = d.lastDate || "";
+      }
+    }
+  } catch (e) { /* 壊れていたら初期状態で続行 */ }
+}
+
+/* 日付が変わったら：完了済みを片付け、未完了は翌日へ繰り越し */
+function rollover() {
+  const today = ymd(new Date());
+  if (state.lastDate && state.lastDate !== today) {
+    state.tasks = state.tasks.filter(t => !t.done);
+    state.tasks.forEach(t => { t.carry = (t.carry || 0) + 1; });
+  }
+  // ログは90日分だけ残す
+  const limit = ymd(new Date(Date.now() - 90*86400000));
+  state.log = state.log.filter(e => e.date >= limit);
+  state.lastDate = today;
+  save();
+}
+
+/* ============ 自動配置 ============ */
+function placeBand(weight) {
+  const w = WEIGHTS[weight];
+  const used = id => state.tasks
+    .filter(t => t.band === id && !t.done)
+    .reduce((s, t) => s + WEIGHTS[t.weight].min, 0);
+  if (w.alt) {
+    const first = bandOf(w.band);
+    if (used(w.band) + w.min > first.cap && used(w.alt) + w.min <= bandOf(w.alt).cap) return w.alt;
+  }
+  return w.band;
+}
+
+/* ============ 操作 ============ */
+function addTask(weight) {
+  const input = $("newTitle");
+  const title = input.value.trim();
+  if (!title) { input.focus(); return; }
+  const band = placeBand(weight);
+  state.tasks.push({ id: uid(), title, weight, band, done: false, carry: 0 });
+  input.value = "";
+  save(); render();
+  const b = bandOf(band);
+  toast(b.emo + " " + b.name + "に置きました");
+}
+
+function toggleDone(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.done = !t.done;
+  if (t.done) {
+    state.log.push({ id: t.id, date: ymd(new Date()), weight: t.weight, band: t.band });
+  } else {
+    const i = state.log.map(e => e.id).lastIndexOf(t.id);
+    if (i >= 0) state.log.splice(i, 1);
+  }
+  save(); render();
+}
+
+function moveTask(id, bandId) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.band = bandId;
+  save(); render(); closeSheet();
+  toast(bandOf(bandId).name + "に移しました");
+}
+
+function removeTask(id) {
+  state.tasks = state.tasks.filter(t => t.id !== id);
+  state.log = state.log.filter(e => e.id !== id);
+  save(); render(); closeSheet();
+  toast("削除しました");
+}
+
+function renameTask(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  const v = prompt("タスク名", t.title);
+  if (v !== null && v.trim()) { t.title = v.trim(); save(); render(); }
+  closeSheet();
+}
+
+/* ============ 描画 ============ */
+function render() {
+  const now = new Date();
+  $("today").innerHTML = "";
+  $("today").append(
+    (now.getMonth()+1) + "/" + now.getDate(),
+    Object.assign(document.createElement("span"), { className:"dow", textContent:"(" + DOW[now.getDay()] + ")" })
+  );
+
+  renderBanner(now);
+
+  const host = $("bands");
+  host.innerHTML = "";
+  const hour = now.getHours();
+
+  BANDS.forEach((b, bi) => {
+    const items = state.tasks.filter(t => t.band === b.id);
+    const isNow = b.hours.includes(hour);
+    const sec = document.createElement("section");
+    sec.className = "band" + (isNow ? " now" : "") + (b.id === "golden" ? " golden" : "");
+
+    const h = document.createElement("div");
+    h.className = "band-h";
+    h.append(
+      el("span", "emo", b.emo),
+      el("span", "name", b.name),
+      el("span", "sub", b.sub)
+    );
+    if (isNow) h.append(el("span", "nowchip", "いま"));
+    const mins = items.filter(t => !t.done).reduce((s, t) => s + WEIGHTS[t.weight].min, 0);
+    if (mins) h.append(el("span", "amt", fmtMin(mins)));
+    sec.append(h);
+
+    const list = document.createElement("div");
+    list.className = "list";
+    if (!items.length) {
+      list.append(el("div", "empty", "－"));
+    } else {
+      items.sort((a, x) => (a.done ? 1 : 0) - (x.done ? 1 : 0));
+      items.forEach(t => list.append(taskRow(t)));
+    }
+    sec.append(list);
+    host.append(sec);
+
+    // 14時台は復帰バッファ（配置しない）— レポートの再起動中断の集中に基づく
+    if (b.id === "noon") {
+      host.append(el("div", "buffer", "14時台は復帰バッファ（タスクは置きません）"));
+    }
+  });
+
+  renderFooter();
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function taskRow(t) {
+  const w = WEIGHTS[t.weight];
+  const row = el("div", "task" + (t.done ? " done" : ""));
+  row.append(el("div", "check"));
+
+  const body = el("div", "body");
+  body.append(el("div", "title", t.title));
+  const tags = el("div", "tags");
+  if (t.carry) tags.append(el("span", "carry", "↻" + t.carry));
+  tags.append(el("span", "wtag", w.emo));
+  body.append(tags);
+  body.addEventListener("click", () => toggleDone(t.id));
+  row.append(body);
+
+  const more = el("button", "more", "⋯");
+  more.setAttribute("aria-label", "操作");
+  more.addEventListener("click", e => { e.stopPropagation(); openTaskSheet(t.id); });
+  row.append(more);
+  return row;
+}
+
+function renderBanner(now) {
+  const slot = $("bannerSlot");
+  slot.innerHTML = "";
+  const h = now.getHours();
+  if (h < 14 || h > 16) return;
+  const heavy = state.tasks.filter(t => t.band === "golden" && !t.done);
+  const box = el("div", "banner");
+  if (heavy.length) {
+    box.append("🌟 ゴールデンタイム。重いタスクは");
+    box.append(Object.assign(document.createElement("b"), { textContent: "『" + heavy[0].title + "』" }));
+    box.append("です。");
+  } else {
+    box.append("🌟 ゴールデンタイム。いちばん集中が続く時間帯です。重いタスクを置けます。");
+  }
+  slot.append(box);
+}
+
+function renderFooter() {
+  const left = state.tasks.filter(t => !t.done);
+  const total = left.reduce((s, t) => s + WEIGHTS[t.weight].min, 0);
+  $("sumVal").textContent = total ? fmtMin(total) : "0分";
+  $("restVal").textContent = left.length ? "残り" + left.length + "件" : "すべて完了";
+  const over = $("overMsg");
+  if (total > DAY_CAPACITY) {
+    over.hidden = false;
+    over.textContent = "⚠ 実績の1日平均（約4時間）を " + fmtMin(total - DAY_CAPACITY) + " 超えています。";
+  } else {
+    over.hidden = true;
+  }
+}
+
+/* ============ シート ============ */
+function openSheet(build) {
+  const sheet = $("sheet");
+  sheet.innerHTML = "";
+  sheet.append(el("div", "grip"));
+  build(sheet);
+  $("veil").classList.add("on");
+}
+function closeSheet() { $("veil").classList.remove("on"); }
+
+function optBtn(text, sub, fn, cls) {
+  const b = el("button", "opt" + (cls ? " " + cls : ""));
+  b.append(el("span", null, text));
+  if (sub) b.append(el("span", "s", sub));
+  b.addEventListener("click", fn);
+  return b;
+}
+
+function openTaskSheet(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  openSheet(sheet => {
+    sheet.append(el("h3", null, t.title));
+    sheet.append(el("div", "lead", WEIGHTS[t.weight].emo + " " + WEIGHTS[t.weight].label
+      + "（見込み " + WEIGHTS[t.weight].min + "分）"
+      + (t.carry ? " ・ " + t.carry + "日繰り越し中" : "")));
+    sheet.append(el("div", "sec", "時間帯を移す"));
+    BANDS.forEach(b => {
+      sheet.append(optBtn(b.emo + " " + b.name + "　" + b.sub, b.id === t.band ? "現在" : "",
+        () => moveTask(t.id, b.id), b.id === t.band ? "cur" : ""));
+    });
+    sheet.append(el("div", "sec", "その他"));
+    sheet.append(optBtn("✏️ 名前を変更", "", () => renameTask(t.id)));
+    sheet.append(optBtn("🗑 削除", "", () => { if (confirm("「" + t.title + "」を削除しますか？")) removeTask(t.id); }, "danger"));
+  });
+}
+
+function openMenu() {
+  openSheet(sheet => {
+    sheet.append(el("h3", null, "メニュー"));
+    sheet.append(el("div", "lead", "時間割ToDo v1"));
+    sheet.append(optBtn("📊 ふりかえり（今週）", "", openReview));
+    sheet.append(optBtn("💾 バックアップを書き出す", "JSON", exportJson));
+    sheet.append(optBtn("📂 バックアップを読み込む", "JSON", importJson));
+    sheet.append(el("div", "sec", "時間帯の考え方"));
+    const ul = el("div", "note");
+    ul.textContent = "重い→15-16時（実績で平均86分続く帯）／ふつう→10-12時（作業量ピーク）／軽い→9時台（開始が最も多い帯）／締め→17時台（平均13分の細切れ帯）。時間帯別集中度レポートの実績に基づいています。";
+    sheet.append(ul);
+  });
+}
+
+function weekStart() {
+  const d = new Date();
+  const diff = (d.getDay() + 6) % 7;      // 月曜はじまり
+  d.setDate(d.getDate() - diff);
+  d.setHours(0,0,0,0);
+  return ymd(d);
+}
+
+function openReview() {
+  const from = weekStart();
+  const week = state.log.filter(e => e.date >= from);
+  const heavy = week.filter(e => e.weight === "heavy");
+  const inGolden = heavy.filter(e => e.band === "golden");
+  const rate = heavy.length ? Math.round(inGolden.length / heavy.length * 100) : null;
+  openSheet(sheet => {
+    sheet.append(el("h3", null, "ふりかえり（今週）"));
+    sheet.append(el("div", "lead", from.replace(/-/g,"/") + " から今日まで"));
+
+    const s1 = el("div", "stat");
+    s1.append(el("span", "v", rate === null ? "－" : rate + "%"));
+    s1.append(el("span", "k", "重いタスクをゴールデンタイムでやれた率"));
+    s1.append(el("span", "n", heavy.length ? inGolden.length + " / " + heavy.length + "件" : "記録なし"));
+    sheet.append(s1);
+
+    const s2 = el("div", "stat");
+    s2.append(el("span", "v", String(week.length)));
+    s2.append(el("span", "k", "今週の完了タスク"));
+    sheet.append(s2);
+
+    const note = el("div", "note");
+    note.textContent = rate === null
+      ? "🪨 重いタスクを完了すると、ここに実績が出ます。"
+      : (rate >= 70 ? "実績どおりのリズムで動けています。"
+         : "重いタスクが別の帯で終わっている回が多めです。15時台に寄せられないか見直してみてください。");
+    sheet.append(note);
+  });
+}
+
+/* ============ バックアップ ============ */
+function exportJson() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "時間割ToDo_" + ymd(new Date()) + ".json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  closeSheet();
+}
+
+function importJson() {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "application/json,.json";
+  inp.addEventListener("change", () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const d = JSON.parse(r.result);
+        if (!d || !Array.isArray(d.tasks)) throw new Error("形式が違います");
+        if (!confirm("いまのデータを置き換えます。よろしいですか？")) return;
+        state.tasks = d.tasks;
+        state.log = Array.isArray(d.log) ? d.log : [];
+        state.lastDate = d.lastDate || ymd(new Date());
+        rollover(); render(); closeSheet();
+        toast("読み込みました");
+      } catch (e) {
+        alert("読み込めませんでした：" + e.message);
+      }
+    };
+    r.readAsText(f);
+  });
+  inp.click();
+}
+
+/* ============ 起動 ============ */
+(function init() {
+  const wrap = $("weights");
+  Object.keys(WEIGHTS).forEach(k => {
+    const w = WEIGHTS[k];
+    const b = el("button", "wbtn");
+    b.append(el("span", "emo", w.emo), el("span", null, w.label), el("span", "min", w.min + "分"));
+    b.title = w.note;
+    b.addEventListener("click", () => addTask(k));
+    wrap.append(b);
+  });
+
+  $("newTitle").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); $("newTitle").blur(); }
+  });
+  $("menuBtn").addEventListener("click", openMenu);
+  $("veil").addEventListener("click", e => { if (e.target === $("veil")) closeSheet(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+  load();
+  rollover();
+  render();
+
+  // 日付・時間帯の変化に追従（復帰時と毎分）
+  let lastHour = new Date().getHours();
+  const tick = () => {
+    const now = new Date();
+    if (ymd(now) !== state.lastDate) { rollover(); render(); lastHour = now.getHours(); return; }
+    if (now.getHours() !== lastHour) { lastHour = now.getHours(); render(); }
+  };
+  setInterval(tick, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+})();
+</script>
+</body>
+</html>
